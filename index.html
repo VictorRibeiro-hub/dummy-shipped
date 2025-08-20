@@ -1,0 +1,1086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DHL LPN Tracker</title>
+  <style>
+    /* DHL Theme Colors */
+    :root {
+      --dhl-red: #DB0000;
+      --dhl-yellow: #FFCC00;
+      --dhl-black: #000000;
+      --sidebar-width: 260px;
+      --table-header-bg: #f0f0f0;
+      --table-border: #ccc;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+/* ▼ novo scroll para Location ----------------------------- */
+    #locationSummaryTable tbody{
+      display:block;           /* corpo vira bloco rolável */
+      max-height:160px;        /* ajuste a altura que couber */
+      overflow-y:auto;
+    }
+    #locationSummaryTable thead,
+    #locationSummaryTable tbody tr{
+      display:table;           /* mantém largura das colunas */
+      width:100%;
+      table-layout:fixed;      /* evita “saltos” horizontais */
+    }
+    /* ▲ fim do bloco novo ------------------------------------- */
+    /* Remove page scroll: container will handle scrolling only */
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: Arial, sans-serif; background-color: #f5f5f5; color: #333; }
+    /* Top Bar */
+    .top-bar {
+      background-color: var(--dhl-red);
+      color: #fff;
+      padding: 15px 20px;
+      font-size: 24px;
+      font-weight: bold;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      z-index: 1000;
+    }
+    .top-bar .logo { height: 32px; margin-right: 12px; }
+    .top-bar .title { flex-grow: 1; }
+    .top-bar .user-info { font-size: 12px; opacity: 0.8; }
+    /* Container below Top Bar */
+    .container {
+      display: flex;
+      position: absolute;
+      top: 50px;
+      left: 0; right: 0; bottom: 0;
+    }
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background-color: var(--dhl-red);
+      color: white;
+      padding: 20px;
+    }
+    /* Rótulos genéricos continuam centralizados ----------------*/
+.sidebar label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+  text-align: center;          /* voltou a ser center */
+  cursor: pointer;
+}
+
+/* ESPECÍFICO: botões de ação ficam alinhados à esquerda ------*/
+.sidebar label.action-btn {    /* só os que têm class="action-btn" */
+  text-align: left;
+}
+
+/* Botão de ação (mantém flex-start) -------------------------*/
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* ícone + texto à esquerda */
+  gap: 6px;
+  background: #ffffff;
+  color: var(--dhl-red);
+  border: 2px solid var(--dhl-red);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.action-btn:hover { background: var(--dhl-yellow); }
+.action-btn .icon { width: 18px; height: 18px; fill: currentColor; }
+
+/* Cartões de resumo centralizados novamente ----------------*/
+.summary-card {
+  background-color: #1a1a1a;
+  color: #fff;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  text-align: center;          /* voltou a ser center */
+}
+
+
+
+    .summary-card.dual { display: flex; justify-content: space-around; }
+    .summary-card.dual .item { flex: 1; }
+    .summary-number { font-size: 18px; font-weight: bold; margin-top: 4px; color: var(--dhl-yellow); }
+    /* Location summary table */
+    #locationSummaryTable {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
+      background: #fff;
+      color: #000;
+      font-size: 12px;
+    }
+    #locationSummaryTable th, #locationSummaryTable td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+    #locationSummaryTable th { background: var(--table-header-bg); }
+    #secondarySummaryTable { width: 100%; margin-top: 10px; border-collapse: collapse; background: #fff; color: #000; font-size: 12px; }
+    #secondarySummaryTable th, #secondarySummaryTable td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+    #secondarySummaryTable th { background: var(--table-header-bg); }
+    #secondarySummaryTable tbody tr:nth-child(even) { background-color: #fafafa; }
+    /* Main Content */
+    .main {
+      flex: 1;
+      padding: 20px;
+      overflow: visible;
+      margin-left: 1px;
+    }
+    /* Scroll container with visible scrollbar */
+    #tableContainer {
+      max-height: calc(100vh - 80px);
+      overflow-y: auto;
+    }
+    #tableContainer table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #tableContainer table thead th {
+      position: sticky;
+      top: 0;
+      background-color: var(--table-header-bg);
+      z-index: 2;
+      border: 1px solid var(--table-border);
+      padding: 6px;
+      text-align: left;
+    }
+    #tableContainer table td {
+      border: 1px solid var(--table-border);
+      padding: 6px;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    #tableContainer table tbody tr:nth-child(even) { background-color: #fafafa; }
+#tableContainer table tbody tr:hover {
+  background-color: #ffe7d1;   /* tom pastel inspirado no amarelo DHL */
+  cursor: pointer;             /* opcional: mostra “mãozinha” */
+}
+/* ---------- Dashboard KPI ----------------------------------*/
+#dashboardPanel{
+  display:grid;
+  gap:16px;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  margin-top:12px;
+}
+.kpi-card{
+  background:#ffffff;
+  border-radius:6px;
+  box-shadow:0 1px 3px rgba(0,0,0,.1);
+  padding:12px;
+  text-align:center;
+}
+/* filtros dropdown no cabeçalho ---------------------------*/
+.filter-select{
+  width:50px;            /* fixo, cabe “W‑29” ou “BR” */
+  font-size:11px;
+  padding:2px 2px;
+  border:1px solid var(--table-border);
+  border-radius:4px;
+  background-color:#fffdee;
+  color:#333;
+  text-overflow:ellipsis;  /* corta com “…” se exceder */
+}
+
+.filter-select:focus{
+  outline:none;
+  border-color:var(--dhl-red);
+  box-shadow:0 0 2px var(--dhl-red);
+}
+/* contêiner: label + select lado a lado */
+.filter-inline{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+  justify-content:space-between; /* label ocupa apenas o necessário */
+}
+
+/* linha flex para os cartões */
+.kpi-row{
+  display:flex;
+  gap:16px;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  align-items:center;
+}
+.kpi-divider{
+  width:1px;
+  height:38px;
+  background:#ccc;
+  margin:0 8px;
+  flex:0 0 1px;
+}
+
+.kpi-card{
+  flex:0 0 160px;           /* padrão */
+}
+.kpi-card.kpi-wide{
+  flex:0 0 200px;           /* +40 px p/ label longa */
+}
+
+.kpi-label{font-size:14px;color:#666;}
+.kpi-value{font-size:24px;font-weight:bold;color:var(--dhl-red);}
+
+
+    .sidebar-nav { margin-bottom: 16px; }
+    .sidebar-link { display: block; color: #fff; text-decoration: none; padding: 6px 0; font-size: 16px; }
+    .sidebar-link:hover { text-decoration: underline; }
+    .sidebar-table-title { font-family: Arial, sans-serif; font-size: 12px; font-weight: 600; color: #ffffff; text-align: center; margin: 12px 0 4px; text-transform: none; }
+    .main h1 { color: var(--dhl-red); font-size: 20px; margin-bottom: 12px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- Chart.js para gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+</head>
+<body>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <img src="dhl-logo.png" alt="DHL Logo" class="logo" />
+    <div class="title">LPN Tracker</div>
+    <div class="user-info">Victor Ribeiro (DHL Supply Chain)</div>
+  </div>
+  <div class="container">
+    <!-- Sidebar -->
+<aside class="sidebar">
+
+  <!-- Ícone de upload definido uma única vez (pode ficar fora da sidebar se preferir) -->
+  <svg style="display:none">
+    <symbol id="icon-upload" viewBox="0 0 24 24">
+      <path d="M5 17v2h14v-2H5zm7-12L8.5 9.5l1.4 1.4 1.6-1.6V16h2V9.3l1.6 1.6 1.4-1.4L12 5z"/>
+    </symbol>
+  </svg>
+
+  <!-- Botão: Upload Weekly CSV -->
+  <label for="csvFile" class="action-btn">
+    <svg class="icon"><use href="#icon-upload"></use></svg>
+    Upload Weekly CSV
+  </label>
+  <input type="file" id="csvFile" accept=".csv" hidden />
+  <div class="status" id="status"></div>
+
+ <!-- Botão: Upload SKU Price File -->
+<label for="priceFile" class="action-btn">
+  <svg class="icon"><use href="#icon-upload"></use></svg>
+  Upload SKU Price File
+</label>
+<input type="file" id="priceFile" accept=".csv" hidden />
+<!-- Botão: Dashboard -->
+<svg style="display:none">
+  <symbol id="icon-dashboard" viewBox="0 0 24 24">
+    <path d="M3 13h4v8H3v-8zm7-6h4v14h-4V7zm7 4h4v10h-4V11z"/>
+  </symbol>
+</svg>
+<label id="dashboardBtn" class="action-btn">
+  <svg class="icon"><use href="#icon-dashboard"></use></svg>
+  Dashboard
+</label>
+
+<!-- Botão: Download Excel -->
+<svg style="display:none">
+  <symbol id="icon-download" viewBox="0 0 24 24">
+    <path d="M5 18h14v2H5v-2zm7-14v9.17l2.59-2.58L16 12l-4 4-4-4 1.41-1.41L11 13.17V4h2z"/>
+  </symbol>
+</svg>
+<label id="downloadBtn" class="action-btn">
+  <svg class="icon"><use href="#icon-download"></use></svg>
+  Download Excel
+</label>
+
+  <!-- Os cartões de resumo e tabelas permanecem iguais -->
+  <div class="summary-card">Total LPNs<div class="summary-number" id="totalLpn">0</div></div>
+  <div class="summary-card dual">
+    <div class="item">Total Items<div class="summary-number" id="totalQty">0</div></div>
+    <div class="item">Total Value<div class="summary-number" id="totalValue">£0</div></div>
+  </div>
+  <div class="summary-card">Weeks Stored<div class="summary-number" id="weeksStored">0</div></div>
+
+  <h3 class="sidebar-table-title">Dummy Shipped by Location</h3>
+  <table id="locationSummaryTable"><thead><tr><th>Location</th><th>Count</th></tr></thead><tbody></tbody></table>
+
+  
+
+  <h3 class="sidebar-table-title">Dummy Shipped by Store</h3>
+  <table id="secondarySummaryTable"><thead><tr><th>Store</th><th>Count</th></tr></thead><tbody></tbody></table>
+</aside>
+
+    <!-- Main Content -->
+    <main class="main">
+  <h1 id="mainTitle">Dummy Shipped LPNs</h1>
+
+  <!-- Tabela original -->
+  <div id="tableContainer"></div>
+
+ <!-- Dashboard (starts hidden) -->
+<div id="dashboardPanel" style="display:none">
+
+  <!-- KPI cards -->
+  <div class="kpi-row">
+    <!-- Overview ------------------------------------------------------>
+    <div class="kpi-card">
+  <div class="kpi-label">Weeks Without Loss</div>
+  <div class="kpi-value" id="kpiWeeksSince">0</div>
+</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Groups Count</div>
+      <div class="kpi-value" id="kpiGroupsCount">0</div>
+    </div>
+
+    <div class="kpi-card">
+  <div class="kpi-label">Avg Loss / Week (£)</div>
+  <div class="kpi-value" id="kpiAvgLossWeek">£0</div>
+</div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg Loss / LPN (£)</div>
+      <div class="kpi-value" id="kpiAvgLossLpn">£0</div>
+    </div>
+
+    <!-- Week & Insights --------------------------------------------->
+    <div class="kpi-card kpi-wide">
+  <div class="kpi-label">Current Week Loss (£)</div>
+  <div class="kpi-value" id="kpiWeekLoss">£0</div>
+</div>
+
+
+    <div class="kpi-card">
+      <div class="kpi-label">Top Group (% Qty)</div>
+      <div class="kpi-value" id="kpiTopGrpPct">0 %</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">Top Store (£)</div>
+      <div class="kpi-value" id="kpiTopStoreLoss">£0</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label">Top Store (% Value)</div>
+      <div class="kpi-value" id="kpiTopStorePct">0 %</div>
+    </div>
+  </div>
+
+  <!-- Pareto Group chart -->
+  <div style="grid-column:1 / -1">
+    <canvas id="paretoGroupChart" height="70"></canvas>
+  </div>
+
+  <!-- Ranking Stores chart -->
+  <div style="grid-column:1 / -1">
+    <canvas id="storeRankChart" height="70"></canvas>
+  </div>
+</div> <!-- /#dashboardPanel -->
+
+</main>
+
+  <script>
+  // guarda o último container carregado (independente da data/hora), carregado do localStorage
+  let lastLoadedContainer = localStorage.getItem('lastLoadedContainer') || '';
+
+  // IndexedDB setup
+  let db;
+  const request = indexedDB.open('LPNDatabase', 1);
+  request.onupgradeneeded = e => { 
+    db = e.target.result; 
+    if (!db.objectStoreNames.contains('WeeklyData')) 
+      db.createObjectStore('WeeklyData', { keyPath: 'week' }); 
+  };
+  request.onerror = e => console.error('IndexedDB error:', e.target.error);
+  request.onsuccess = e => { db = e.target.result; loadAndMergeData([]); };
+
+  // Price map handling
+  let priceMap = {};
+  let displayedData = [];
+/* ---- filtros globais ---- */
+const filterKeys = ['week','userId','loader','container','group','workGroup','updateQty'];
+let activeFilters = {};                // { key: value }
+let allRows = [];                      // total sem filtro
+
+function updateLastContainer() {
+  const statusEl = document.getElementById('status');
+  if (!lastLoadedContainer) {
+    statusEl.textContent = '';
+    return;
+  }
+  statusEl.textContent = `Last Container: ${lastLoadedContainer}`;
+}
+
+// (agora segue diretamente a computeWeek, sem duplicar renderTableWithPrices)
+    function computeWeek(dateStr) {
+      const [d,m,y] = dateStr.split('/').map(Number);
+      const dt = new Date(y, m-1, d);
+      const sun = new Date(dt); sun.setDate(dt.getDate() - dt.getDay());
+      const yr = sun.getFullYear(), start = new Date(yr,0,1);
+      const wk = Math.floor((sun - start)/(7*24*3600*1000)) +1;
+      return `${yr}-W${String(wk).padStart(2,'0')}`;
+    }
+
+    const columns = [
+      {key:'transactionDate',label:'Transaction Date'}, {key:'week',label:'Week'},
+      {key:'transactionTime',label:'Transaction Time'}, {key:'userId',label:'User ID'},
+      {key:'loader',label:'Loader'}, {key:'code',label:'Code'},
+      {key:'container',label:'Container'}, {key:'fromLocation',label:'From Location'},
+      {key:'toLocation',label:'To Location'}, {key:'workGroup',label:'Work Group'},
+      {key:'group',label:'Group'}, {key:'updateQty',label:'Update Qty'},
+      {key:'sku',label:'SKU'}, {key:'value',label:'Value (£)'}
+    ];
+const gbpFmt = new Intl.NumberFormat('en-GB', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+function formatCurrency(num) {
+  return '£' + gbpFmt.format(Number(num || 0));
+}
+   
+    function persistByWeek(rows) {
+      const store = db.transaction('WeeklyData','readwrite').objectStore('WeeklyData');
+      const weeks = {};
+      rows.forEach(r => (weeks[r.week] = weeks[r.week] || []).push(r));
+      Object.entries(weeks).forEach(([w,rs]) => store.put({week: w, rows: rs}));
+    }
+function updateDashboardKPI(data){
+  /* totais básicos */
+  const totalVal = data.reduce((s,r)=>s + (r.value || 0), 0);
+  const totalQty = data.reduce((s,r)=>s + (r.updateQty || 0), 0);
+  const lpnSet   = new Set(data.map(r => r.container));
+  const lpnCount = lpnSet.size || 1;
+
+  /* 1) contagens */
+  const storesCount  = new Set(data.map(r => r.container.slice(0,2))).size;
+  const groupsCount  = new Set(data.map(r => r.group)).size;
+
+  /* 2) médias */
+  const avgQtyLpn  = totalQty / lpnCount;
+  const avgLossLpn = totalVal / lpnCount;
+
+  /* 3) perda na semana mais recente */
+  const latestWeek = [...new Set(data.map(r => r.week))].sort().pop();
+  const weekLoss   = data
+      .filter(r => r.week === latestWeek)
+      .reduce((s,r) => s + (r.value || 0), 0);
+
+  /* 4) top group por Qty (%) */
+  const qtyByGrp = {};
+  data.forEach(r => qtyByGrp[r.group] = (qtyByGrp[r.group] || 0) + (r.updateQty || 0));
+  const [topGrpName, topGrpQty] = Object.entries(qtyByGrp)
+      .sort((a,b) => b[1] - a[1])[0] || ['–',0];
+const pctTopGrp  = totalQty ? (topGrpQty / totalQty * 100) : 0;
+
+
+  /* 5) top store por £ e % */
+  const valByStore = {};
+  data.forEach(r => {
+    const st = r.container.slice(0,2);
+    valByStore[st] = (valByStore[st] || 0) + (r.value || 0);
+  });
+  const [topStore, topStoreVal] = Object.entries(valByStore)
+        .sort((a,b) => b[1] - a[1])[0] || ['–',0];
+  const pctTopStore = totalVal ? (topStoreVal / totalVal * 100) : 0;
+
+  /* 6) escreve nos cartões */
+/* --- Weeks Since Last Loss ---------------------------------- */
+/* 1) set de semanas com perda (formato "YYYY-W##") */
+const weeksWithLoss = new Set(data.map(r => r.week));
+
+/* 2) semana ISO atual usando a própria computeWeek */
+const today   = new Date();
+const curWeek = computeWeek(
+  `${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}`
+);
+
+/* 3) semana mais recente com perda (ou curWeek se não houver dados) */
+const lastLossWeek = [...weeksWithLoss].sort().pop() || curWeek;
+
+/* 4) converte "2025-W29" → número absoluto para subtrair
+      (ano * 52 + nº semana) – aproximação suficiente p/ gaps curtos */
+const toAbs = w => {
+  const [y, wk] = w.split('-W').map(Number);
+  return y * 52 + wk;                // se algum ano ISO tiver 53, o erro é +-1
+};
+
+/* diferença – 1  (conta só as semanas “vazias” após a última perda) */
+const rawGap    = toAbs(curWeek) - toAbs(lastLossWeek) - 1;
+const weeksSince = Math.max(0, rawGap);
+
+
+/* 5) escreve no cartão */
+document.getElementById('kpiWeeksSince').textContent = weeksSince;
+
+
+document.getElementById('kpiGroupsCount').textContent   = groupsCount;
+/* média de £ por semana ------------------------------------ */
+const weeksDistinct = [...new Set(data.map(r => r.week))].length || 1;
+const avgLossWeek   = totalVal / weeksDistinct;
+
+document.getElementById('kpiAvgLossWeek').textContent =
+  '£' + gbpFmt.format(avgLossWeek);
+
+document.getElementById('kpiAvgLossLpn').textContent    = '£' + gbpFmt.format(avgLossLpn);
+document.getElementById('kpiWeekLoss').textContent      = '£' + gbpFmt.format(weekLoss);
+document.getElementById('kpiTopGrpPct').textContent =
+  `${pctTopGrp.toFixed(1)} % (${topGrpName})`;
+
+document.getElementById('kpiTopStoreLoss').textContent  = '£' + gbpFmt.format(topStoreVal);
+document.getElementById('kpiTopStorePct').textContent   = pctTopStore.toFixed(1) + ' %';
+}
+
+/* -------- Gráfico Pareto por Group (£) -------- */
+let paretoChart;   // guarda instância para futuras atualizações
+
+function buildParetoGroup(data){
+  /* 1) soma £ por grupo */
+  const map = {};
+  data.forEach(r => { map[r.group] = (map[r.group]||0) + (r.value||0); });
+
+  /* 2) ordena desc e calcula acumulado % */
+  const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  const labels  = entries.map(e=>e[0]);
+  const values  = entries.map(e=>e[1]);
+  const total   = values.reduce((s,v)=>s+v,0);
+  const cumul   = values.map((v,i)=>values.slice(0,i+1).reduce((s,t)=>s+t,0)/total*100);
+
+  const ctx = document.getElementById('paretoGroupChart');
+
+  if (paretoChart){            // se já existe → só atualiza dados
+    paretoChart.data.labels           = labels;
+    paretoChart.data.datasets[0].data = values;
+    paretoChart.data.datasets[1].data = cumul;
+    paretoChart.update();
+    return;
+  }
+
+  paretoChart = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { type:'bar',  label:'Value (£)',      data:values, borderWidth:1,
+          backgroundColor:'#FFCC00', yAxisID:'y' },
+        { type:'line', label:'Cumulative %',   data:cumul,  borderWidth:2,
+          pointRadius:2, tension:0.3, yAxisID:'y1' }
+      ]
+    },
+    options:{
+      plugins:{ legend:{display:true} },
+      interaction:{ mode:'index', intersect:false },
+      scales:{
+        y : { beginAtZero:true, title:{display:true,text:'£'} },
+        y1: { position:'right', beginAtZero:true, min:0, max:100,
+              title:{display:true,text:'%'}, grid:{drawOnChartArea:false} }
+      }
+    }
+  });
+}
+/* -------- Ranking Stores: Qty & £ ------------------------ */
+let storeChart;
+
+function buildStoreRanking(data){
+  /* 1) agrega qty e £ por store (prefixo) */
+  const map = {};   // store → [qty, value]
+  data.forEach(r=>{
+    const store = r.container.substring(0,2);
+    const entry = map[store] || [0,0];
+    entry[0] += (r.updateQty||0);
+    entry[1] += (r.value||0);
+    map[store] = entry;
+  });
+
+  /* 2) top 10 por value £ */
+  const sorted = Object.entries(map)
+      .sort((a,b)=>b[1][1]-a[1][1])         // desc pelo £
+      .slice(0,10);
+
+  const labels = sorted.map(e=>e[0]);
+  const qty    = sorted.map(e=>e[1][0]);
+  const value  = sorted.map(e=>e[1][1]);
+
+  /* 3) cria/atualiza gráfico */
+  const ctx = document.getElementById('storeRankChart');
+
+  if (storeChart){
+    storeChart.data.labels               = labels;
+    storeChart.data.datasets[0].data     = qty;
+    storeChart.data.datasets[1].data     = value;
+    storeChart.update();
+    return;
+  }
+
+  storeChart = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Qty',   data:qty,   backgroundColor:'#FFE07D', borderWidth:1, order:2 },
+        { label:'Value (£)', data:value, backgroundColor:'#DB0000',
+          borderWidth:1, order:1 }
+      ]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{ legend:{display:true} },
+      scales:{
+        x:{ beginAtZero:true, ticks:{ callback:v=>gbpFmt.format(v) } }
+      }
+    }
+  });
+}
+function applyFilters(){
+  const filtered = allRows.filter(r=>{
+    return Object.entries(activeFilters).every(([k,v])=>{
+      return !v || r[k] == v;
+    });
+  });
+  renderTable(filtered);        // re‑desenha tabela + header
+}
+
+    /* ========================================================= */
+/*  1)  TABELA + KPIs + BANNERS                              */
+/* ========================================================= */
+function renderTable(data) {
+  displayedData = data;                      // p/ botão Download
+
+  /* 1) recalcula Value (£) se já houver mapa de preços */
+  if (Object.keys(priceMap).length) {
+    data.forEach(r => {
+      r.value =
+        Math.round((priceMap[r.sku] || 0) * (r.updateQty || 0) * 100) / 100;
+    });
+  }
+
+  /* 2) KPIs e gráficos */
+  updateDashboardKPI(data);
+  buildParetoGroup(data);
+  buildStoreRanking(data);
+
+  /* 3) limpa contêiner principal */
+  const cont = document.getElementById('tableContainer');
+  cont.innerHTML = '';
+
+  /* 4) ­totais da sidebar */
+  document.getElementById('totalLpn').textContent =
+    new Set(data.map(r => r.container)).size;
+
+  document.getElementById('totalQty').textContent =
+    data.reduce((s, r) => s + (r.updateQty || 0), 0);
+
+  const totalVal = data.reduce((s, r) => s + (r.value || 0), 0);
+  document.getElementById('totalValue').textContent = formatCurrency(totalVal);
+
+  document.getElementById('weeksStored').textContent =
+    new Set(data.map(r => r.week)).size;
+
+  /* 5) tabela “Dummy Shipped by Location” */
+  const locs = {};
+  const lb = document.querySelector('#locationSummaryTable tbody');
+  lb.innerHTML = '';
+  data.forEach(r => {
+    const init =
+      (r.fromLocation.match(/^[A-Za-z]+/) || [''])[0] ||
+      r.fromLocation[0] ||
+      '';
+    locs[init] = (locs[init] || 0) + 1;
+  });
+  Object.entries(locs)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(
+      ([l, c]) => (lb.innerHTML += `<tr><td>${l}</td><td>${c}</td></tr>`)
+    );
+
+  /* 6) tabela “Dummy Shipped by Store” (ordenada desc) */
+const sts = {};
+const sb  = document.querySelector('#secondarySummaryTable tbody');
+sb.innerHTML = '';
+data.forEach(r => {
+  const k = r.container.substring(0, 2);
+  (sts[k] || (sts[k] = new Set())).add(r.container);
+});
+Object.entries(sts)                       // ↓ mesma lógica da primeira tabela
+  .sort((a, b) => b[1].size - a[1].size)  // ordena pelo tamanho do Set
+  .forEach(([k, s]) => {
+    sb.innerHTML += `<tr><td>${k}</td><td>${s.size}</td></tr>`;
+  });
+
+  /* 7) tabela principal com filtros */
+  const tbl = document.createElement('table');
+  const thd = tbl.createTHead();
+  const hr = thd.insertRow();
+
+  columns.forEach(c => {
+    const th = document.createElement('th');
+
+    if (filterKeys.includes(c.key)) {
+      th.innerHTML = `<div class="filter-inline">
+        <span>${c.label}</span>
+        <select class="filter-select" data-key="${c.key}">
+          <option value="">(all)</option>
+        </select>
+      </div>`;
+      hr.appendChild(th);
+
+      const sel = th.querySelector('select');
+      [...new Set(allRows.map(r => r[c.key]).filter(v => v !== '' && v != null))]
+        .sort()
+        .forEach(v => {
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          sel.appendChild(opt);
+        });
+
+      if (activeFilters[c.key]) sel.value = activeFilters[c.key];
+
+      sel.addEventListener('change', e => {
+        const key = e.target.dataset.key;
+        activeFilters[key] = e.target.value || undefined;
+        applyFilters();
+      });
+    } else {
+      th.textContent = c.label;
+      hr.appendChild(th);
+    }
+  });
+
+  const bd = tbl.createTBody();
+  data.forEach(r => {
+    const tr = bd.insertRow();
+    columns.forEach(c => {
+      const td = tr.insertCell();
+      td.textContent =
+        c.key === 'value' ? formatCurrency(r.value) : (r[c.key] || '');
+    });
+  });
+
+  cont.appendChild(tbl);
+
+  /* 8) banner “Last Container” */
+  updateLastContainer();
+}
+
+function loadAndMergeData(newRows) {
+  // 1) abre uma transação de leitura no IndexedDB
+  const tx = db.transaction('WeeklyData', 'readonly');
+  const store = tx.objectStore('WeeklyData');
+
+  // 2) busca todos os registros armazenados
+  store.getAll().onsuccess = event => {
+    // 3) extrai as linhas de cada registro
+    const existing = event.target.result.flatMap(rec => rec.rows);
+
+    // 4) faz o merge entre o que já estava no DB e as newRows
+    const map = new Map();
+    [...existing, ...newRows].forEach(r => {
+      const key = [
+        r.transactionDate,
+        r.transactionTime,
+        r.container,
+        r.sku
+      ].join('|');
+      map.set(key, r);
+    });
+
+    // 5) converte o Map de volta em array e ordena
+    const merged = Array.from(map.values()).sort((a, b) => {
+      // 5.1) semana desc
+      if (a.week !== b.week) return b.week.localeCompare(a.week);
+      // 5.2) data desc
+      const da = a.transactionDate.split('/').reverse().join('-');
+      const db = b.transactionDate.split('/').reverse().join('-');
+      if (da !== db) return db.localeCompare(da);
+      // 5.3) hora desc
+      return b.transactionTime.localeCompare(a.transactionTime);
+    });
+
+    // 6) atualiza o estado global e re-renderiza
+    allRows = merged;
+    renderTable(allRows);
+
+    // 7) atualiza o banner “Last Container”
+    updateLastContainer();
+
+    // 8) persiste de volta no IndexedDB
+    persistByWeek(merged);
+  };
+}
+
+
+/* ========================================================= */
+/*  3)  Reaplica preços                                       */
+/* ========================================================= */
+function renderTableWithPrices() {
+  allRows.forEach(r => {
+    const unitPrice = priceMap[r.sku] || 0;
+    r.value = Math.round(unitPrice * (r.updateQty || 0) * 100) / 100;
+  });
+  persistByWeek(allRows);
+  renderTable(allRows);
+  updateLastContainer();
+}
+
+// === Upload do CSV de preços ===
+const priceInput = document.getElementById('priceFile');
+priceInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext !== 'csv') {
+    alert('Por favor, selecione um arquivo CSV.');
+    return;
+  }
+
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    worker: true,
+    step: row => {
+      const r     = row.data;
+      const sku   = r['SKU'] || r['SKU_ID'] || r['Sku'] || r['sku'];
+      const price = r['Price'] || r['EACH_VALUE'] || r['price'];
+      if (sku !== undefined && price !== undefined) {
+        priceMap[String(sku).trim()] = parseFloat(price) || 0;
+      }
+    },
+    complete: () => {
+      // Recalcula os valores assim que os preços forem carregados
+      renderTableWithPrices();
+      priceInput.value = '';
+    }
+  });
+});
+
+// === Upload do CSV de containers ===
+const csvInput = document.getElementById('csvFile');
+csvInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  document.getElementById('status').textContent = 'Parsing CSV...';
+  Papa.parse(f, {
+    header: true,
+    skipEmptyLines: true,
+    worker: true,
+    complete: res => {
+      const rows = res.data, lm = {};
+      rows.forEach(r => {
+        if (/LOAD$/i.test(r['To Location'])) lm[r['Container']] = r['User ID'];
+      });
+      const newRows = rows
+        .filter(r => r['To Location']?.trim() === 'CONTAINER')
+        .map(r => ({
+          transactionDate: r['Transaction Date'],
+          week: computeWeek(r['Transaction Date']),
+          transactionTime: r['Transaction Time'],
+          userId: r['User ID'],
+          loader: lm[r['Container']] || '',
+          code: r['Code'],
+          container: r['Container'],
+          fromLocation: r['From Location'],
+          toLocation: r['To Location'],
+          workGroup: r['Work Group'],
+          group: r['User Defined Num 3'],
+          updateQty: Number(r['Update Qty']) || 0,
+          sku: r['SKU'],
+          value: 0
+        }));
+
+      if (newRows.length) {
+        lastLoadedContainer = newRows[0].container;
+        localStorage.setItem('lastLoadedContainer', lastLoadedContainer);
+      }
+
+      loadAndMergeData(newRows);
+      csvInput.value = '';
+    }
+  });
+});
+
+
+
+// --- Download Excel (.xlsx) ---------------------------------
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  if (!displayedData.length) return;
+
+  /* util: objeto ➜ linha seguindo 'columns' */
+  const objRow = r => { const o={}; columns.forEach(c=>o[c.label]=r[c.key]??''); return o; };
+
+  /* util: label de mês "Jan-2025" */
+  const monthLabel = d => {
+    const [ ,mon,yr] = d.split('/').map(Number);      // "dd/mm/yyyy"
+    return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mon-1] + `-${yr}`;
+  };
+
+  /* util: agrega valor por chave composta */
+  const sumMap = (arr,key,val)=>arr.reduce((m,r)=>{
+    const k=key(r), v=val(r);
+    m.set(k,(m.get(k)||0)+v); return m;
+  }, new Map());
+
+  /* util: Map → AOA com formatação £ */
+  const toAOA = (hdr,map,split,fmt=true)=>[
+    hdr,
+    ...[...map.entries()].sort().map(([k,v])=>[
+      ...k.split(split),
+      fmt ? gbpFmt.format(v) : v
+    ])
+  ];
+
+  /* ---------- 1) All LPNs ---------------------------------- */
+  const allSheet = XLSX.utils.json_to_sheet(
+    displayedData.map(objRow),
+    {header: columns.map(c=>c.label)}
+  );
+
+  /* ---------- 2) Prefix sheets ----------------------------- */
+  const prefixes = ['BR','ME','TR','OX','PS','HH'];
+  const prefixSheets = {};
+  prefixes.forEach(p=>{
+    const rows = displayedData.filter(r=>r.container.startsWith(p));
+    if(rows.length){
+      prefixSheets[p] = XLSX.utils.json_to_sheet(
+        rows.map(objRow),
+        {header: columns.map(c=>c.label)}
+      );
+    }
+  });
+
+  /* ---------- 3) Week / Container / Group / Value ---------- */
+  const wkCG = sumMap(displayedData,
+    r=>`${r.week}|${r.container}|${r.group}`, r=>r.value||0);
+  const wkCG_AOA = toAOA(['Week','Container','Group','Value (£)'], wkCG, '|');
+  const wkCG_Tot = wkCG_AOA.slice(1).reduce((s,r)=>s+Number(r[3].replace(/,/g,'')),0);
+  wkCG_AOA.push(['Total','','',gbpFmt.format(wkCG_Tot)]);
+  const wkCG_Sheet = XLSX.utils.aoa_to_sheet(wkCG_AOA);
+
+  /* ---------- 4) Week / Store / Value ---------------------- */
+  const wkStore = sumMap(displayedData,
+    r=>`${r.week}|${r.container.substring(0,2)}`, r=>r.value||0);
+  const wkStore_AOA = toAOA(['Week','Store','Value (£)'], wkStore, '|');
+  const wkStore_Tot = wkStore_AOA.slice(1).reduce((s,r)=>s+Number(r[2].replace(/,/g,'')),0);
+  wkStore_AOA.push(['Total','',gbpFmt.format(wkStore_Tot)]);
+  const wkStore_Sheet = XLSX.utils.aoa_to_sheet(wkStore_AOA);
+
+  /* ---------- 4.5) Week / Group / Qty / Value -------------- */
+  const wkGrpMap = new Map();                           // "2025-W32|GroupA" → [qty,val]
+  displayedData.forEach(r=>{
+    const k = `${r.week}|${r.group}`;
+    const cur = wkGrpMap.get(k) || [0,0];
+    wkGrpMap.set(k,[cur[0]+(r.updateQty||0), cur[1]+(r.value||0)]);
+  });
+  const wkGrp_AOA = [['Week','Group','Qty','Value (£)']];
+  let wkGrpQty = 0, wkGrpVal = 0;
+  [...wkGrpMap.entries()].sort().forEach(([k,[q,v]])=>{
+    const [w,g] = k.split('|');
+    wkGrp_AOA.push([w,g,q,gbpFmt.format(v)]);
+    wkGrpQty += q; wkGrpVal += v;
+  });
+  wkGrp_AOA.push(['Total','',wkGrpQty,gbpFmt.format(wkGrpVal)]);
+  const wkGrp_Sheet = XLSX.utils.aoa_to_sheet(wkGrp_AOA);
+
+  /* ---------- 5) Month / Container / Group / Value --------- */
+  const moCG = sumMap(displayedData,
+    r=>`${monthLabel(r.transactionDate)}|${r.container}|${r.group}`, r=>r.value||0);
+  const moCG_AOA = toAOA(['Month','Container','Group','Value (£)'], moCG, '|');
+  const moCG_Tot = moCG_AOA.slice(1).reduce((s,r)=>s+Number(r[3].replace(/,/g,'')),0);
+  moCG_AOA.push(['Total','','',gbpFmt.format(moCG_Tot)]);
+  const moCG_Sheet = XLSX.utils.aoa_to_sheet(moCG_AOA);
+
+  /* ---------- 6) Month / Store / Value --------------------- */
+  const moStore = sumMap(displayedData,
+    r=>`${monthLabel(r.transactionDate)}|${r.container.substring(0,2)}`, r=>r.value||0);
+  const moStore_AOA = toAOA(['Month','Store','Value (£)'], moStore, '|');
+  const moStore_Tot = moStore_AOA.slice(1).reduce((s,r)=>s+Number(r[2].replace(/,/g,'')),0);
+  moStore_AOA.push(['Total','',gbpFmt.format(moStore_Tot)]);
+  const moStore_Sheet = XLSX.utils.aoa_to_sheet(moStore_AOA);
+
+  /* ---------- 6.5) Month / Group / Qty / Value ------------- */
+  const moGrpMap = new Map();                           // "May-2025|GroupA" → [qty,val]
+  displayedData.forEach(r=>{
+    const k = `${monthLabel(r.transactionDate)}|${r.group}`;
+    const cur = moGrpMap.get(k) || [0,0];
+    moGrpMap.set(k,[cur[0]+(r.updateQty||0), cur[1]+(r.value||0)]);
+  });
+  const moGrp_AOA = [['Month','Group','Qty','Value (£)']];
+  let moGrpQty = 0, moGrpVal = 0;
+  [...moGrpMap.entries()].sort().forEach(([k,[q,v]])=>{
+    const [m,g] = k.split('|');
+    moGrp_AOA.push([m,g,q,gbpFmt.format(v)]);
+    moGrpQty += q; moGrpVal += v;
+  });
+  moGrp_AOA.push(['Total','',moGrpQty,gbpFmt.format(moGrpVal)]);
+  const moGrp_Sheet = XLSX.utils.aoa_to_sheet(moGrp_AOA);
+
+  /* ---------- 7) Summary ----------------------------------- */
+  /* Location */
+  const locCnt = sumMap(displayedData,
+    r=>(r.fromLocation.match(/^[A-Za-z]+/)||[''])[0]||r.fromLocation[0]||'', _=>1);
+  const locAOA = [['Location','Count']]; let locSum=0;
+  [...locCnt.entries()].sort((a,b)=>b[1]-a[1]).forEach(([l,c])=>{locAOA.push([l,c]); locSum+=c;});
+  locAOA.push(['Total',locSum]);
+
+  /* Store */
+  const stores={}, storeVal={}; displayedData.forEach(r=>{
+    const p=r.container.substring(0,2);
+    (stores[p]||(stores[p]=new Set())).add(r.container);
+    storeVal[p]=(storeVal[p]||0)+(r.value||0);
+  });
+  const storeAOA=[['Store','LPNs','Value (£)']]; let sumVal=0;
+  Object.entries(stores).forEach(([k,s])=>{const v=storeVal[k]||0;
+    storeAOA.push([k,s.size,gbpFmt.format(v)]); sumVal+=v;});
+  storeAOA.push(['Total','',gbpFmt.format(sumVal)]);
+
+  const summarySheet = XLSX.utils.aoa_to_sheet([...locAOA,[],...storeAOA]);
+
+  /* ---------- 8) Workbook ---------------------------------- */
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, allSheet,        'All LPNs');
+  Object.entries(prefixSheets).forEach(([n,ws])=>XLSX.utils.book_append_sheet(wb,ws,n));
+  XLSX.utils.book_append_sheet(wb, wkCG_Sheet,      'Week-Container');
+  XLSX.utils.book_append_sheet(wb, wkStore_Sheet,   'Week-Store');
+  XLSX.utils.book_append_sheet(wb, wkGrp_Sheet,     'Week-Group');
+  XLSX.utils.book_append_sheet(wb, moCG_Sheet,      'Month-Container');
+  XLSX.utils.book_append_sheet(wb, moStore_Sheet,   'Month-Store');
+  XLSX.utils.book_append_sheet(wb, moGrp_Sheet,     'Month-Group');
+  XLSX.utils.book_append_sheet(wb, summarySheet,    'Summary');
+
+  /* ---------- 9) Baixar ------------------------------------ */
+  const wbout = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  const blob  = new Blob([wbout],{
+    type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lpn_report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+/* --- Toggle Dashboard / Table -------------------------------- */
+document.getElementById('dashboardBtn').addEventListener('click', () => {
+  const tbl   = document.getElementById('tableContainer');
+  const dash  = document.getElementById('dashboardPanel');
+  const title = document.getElementById('mainTitle');
+
+  /* se o dashboard está oculto → mostrar */
+  if (dash.style.display === 'none') {
+    dash.style.display = 'block';
+    tbl.style.display  = 'none';
+    title.textContent  = 'Dashboard – Dummy Shipped KPIs';
+  } else {
+    dash.style.display = 'none';
+    tbl.style.display  = 'block';
+    title.textContent  = 'Dummy Shipped LPNs';
+  }
+});
+
+  </script>
+</body>
+</html>
