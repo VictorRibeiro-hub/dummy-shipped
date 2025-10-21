@@ -16,17 +16,30 @@
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 /* ▼ novo scroll para Location ----------------------------- */
-    #locationSummaryTable tbody{
-      display:block;           /* corpo vira bloco rolável */
-      max-height:160px;        /* ajuste a altura que couber */
-      overflow-y:auto;
-    }
-    #locationSummaryTable thead,
-    #locationSummaryTable tbody tr{
-      display:table;           /* mantém largura das colunas */
-      width:100%;
-      table-layout:fixed;      /* evita “saltos” horizontais */
-    }
+#locationSummaryTable tbody{
+  display:block;           /* corpo vira bloco rolável */
+  max-height:160px;        /* ajuste a altura que couber */
+  overflow-y:auto;
+}
+#locationSummaryTable thead,
+#locationSummaryTable tbody tr{
+  display:table;           /* mantém largura das colunas */
+  width:100%;
+  table-layout:fixed;      /* evita “saltos” horizontais */
+}
+
+/* ▼ novo scroll para Store ----------------------------- */
+#secondarySummaryTable tbody{
+  display:block;           /* corpo vira bloco rolável */
+  max-height:160px;        /* ajuste a altura que couber */
+  overflow-y:auto;
+}
+#secondarySummaryTable thead,
+#secondarySummaryTable tbody tr{
+  display:table;           /* mantém largura das colunas */
+  width:100%;
+  table-layout:fixed;      /* evita “saltos” horizontais */
+}
     /* ▲ fim do bloco novo ------------------------------------- */
     /* Remove page scroll: container will handle scrolling only */
     html, body { height: 100%; overflow: hidden; }
@@ -66,9 +79,20 @@
   display: block;
   margin-bottom: 12px;
   font-size: 14px;
-  text-align: center;          /* voltou a ser center */
+  text-align: center;
   cursor: pointer;
 }
+
+/* Status: mostra Last Container em linha única */
+#status {
+  font-size: 15px;          /* fonte menor */
+  white-space: nowrap;      /* impede quebra de linha */
+  overflow: hidden;         /* corta se passar do espaço */
+  text-overflow: ellipsis;  /* coloca "..." no fim se cortar */
+  display: block;
+  margin-top: 6px;
+}
+
 
 /* ESPECÍFICO: botões de ação ficam alinhados à esquerda ------*/
 .sidebar label.action-btn {    /* só os que têm class="action-btn" */
@@ -389,7 +413,7 @@
 
   // IndexedDB setup
   let db;
-  const request = indexedDB.open('LPNDatabase', 1);
+  const request = indexedDB.open('LPNDatabase',2);
   request.onupgradeneeded = e => { 
     db = e.target.result; 
     if (!db.objectStoreNames.contains('WeeklyData')) 
