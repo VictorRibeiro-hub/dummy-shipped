@@ -127,14 +127,48 @@
   border-radius: 4px;
   margin-bottom: 10px;
   font-size: 14px;
-  text-align: center;          /* voltou a ser center */
+  text-align: center;
+}
+
+/* Card com 2 valores lado a lado */
+.summary-card.dual {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+/* Cada item dentro do card */
+.summary-card.dual .item {
+  flex: 1;
+  padding: 0 10px;  /* pequeno respiro */
+}
+
+/* Barra vertical suave entre os dois */
+/* Barra vertical curta, centralizada */
+.summary-card.dual .item + .item {
+  position: relative;
+}
+
+.summary-card.dual .item + .item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 75%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 50%; /* altura da barra → pode ajustar */
+  background: rgba(255, 255, 255, 0.35);
 }
 
 
+/* Valor numérico */
+.summary-number {
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 4px;
+  color: var(--dhl-yellow);
+}
 
-    .summary-card.dual { display: flex; justify-content: space-around; }
-    .summary-card.dual .item { flex: 1; }
-    .summary-number { font-size: 18px; font-weight: bold; margin-top: 4px; color: var(--dhl-yellow); }
     /* Location summary table */
     #locationSummaryTable {
       width: 100%;
@@ -326,7 +360,7 @@
   <!-- Os cartões de resumo e tabelas permanecem iguais -->
   <div class="summary-card">Total LPNs<div class="summary-number" id="totalLpn">0</div></div>
   <div class="summary-card dual">
-    <div class="item">Total Items<div class="summary-number" id="totalQty">0</div></div>
+    <div class="item">T. Items<div class="summary-number" id="totalQty">0</div></div>
     <div class="item">Total Value<div class="summary-number" id="totalValue">£0</div></div>
   </div>
   <div class="summary-card">Weeks Stored<div class="summary-number" id="weeksStored">0</div></div>
@@ -413,7 +447,7 @@
 
   // IndexedDB setup
   let db;
-  const request = indexedDB.open('LPNDatabase',2);
+  const request = indexedDB.open('LPNDatabase');
   request.onupgradeneeded = e => { 
     db = e.target.result; 
     if (!db.objectStoreNames.contains('WeeklyData')) 
@@ -462,9 +496,15 @@ const gbpFmt = new Intl.NumberFormat('en-GB', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
+
+const intFmt = new Intl.NumberFormat('en-GB', {
+  maximumFractionDigits: 0
+});
+
 function formatCurrency(num) {
   return '£' + gbpFmt.format(Number(num || 0));
 }
+
    
     function persistByWeek(rows) {
       const store = db.transaction('WeeklyData','readwrite').objectStore('WeeklyData');
@@ -691,14 +731,16 @@ function renderTable(data) {
   cont.innerHTML = '';
 
   /* 4) ­totais da sidebar */
-  document.getElementById('totalLpn').textContent =
+    document.getElementById('totalLpn').textContent =
     new Set(data.map(r => r.container)).size;
 
+  const totalQty = data.reduce((s, r) => s + (r.updateQty || 0), 0);
   document.getElementById('totalQty').textContent =
-    data.reduce((s, r) => s + (r.updateQty || 0), 0);
+    intFmt.format(totalQty);
 
   const totalVal = data.reduce((s, r) => s + (r.value || 0), 0);
   document.getElementById('totalValue').textContent = formatCurrency(totalVal);
+
 
   document.getElementById('weeksStored').textContent =
     new Set(data.map(r => r.week)).size;
